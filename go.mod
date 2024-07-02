@@ -1,3 +1,3 @@
-module github.com/six-shot/HNG11BACKEND/go-http-server
+module github.com/six-shot/go-http-server
 
 go 1.22.4
