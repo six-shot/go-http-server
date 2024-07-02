@@ -24,40 +24,71 @@ type IPInfo struct {
 func getIPInfo(visitorName string) (*IPInfo, error) {
 	resp, err := http.Get("https://ipapi.co/json/")
 	if err != nil {
-		return nil, fmt.Errorf("error fetching IP information: %v", err)
+		return nil, fmt.Errorf("error fetching IP info: %w", err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ipapi.co responded with status %d: %s", resp.StatusCode, string(body))
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading IP API response: %v", err)
+		return nil, fmt.Errorf("error reading IP API response: %w", err)
 	}
+
+	log.Printf("IP API Response: %s", body) // Log the response body for debugging
 
 	var data map[string]interface{}
 	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, fmt.Errorf("error decoding IP API response: %v", err)
+		return nil, fmt.Errorf("error unmarshaling IP API response: %w", err)
 	}
+
+	log.Printf("Unmarshaled IP Data: %#v", data)
 
 	city, ok := data["city"].(string)
 	if !ok || city == "" {
 		return nil, fmt.Errorf("city not found in IP API response")
 	}
 
-	weatherResp, err := http.Get(fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric", city, OpenWeatherAPIKey))
+	latitude, ok := data["latitude"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("latitude not found in IP API response")
+	}
+
+	longitude, ok := data["longitude"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("longitude not found in IP API response")
+	}
+
+	weatherURL := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?lat=%f&lon=%f&appid=%s&units=metric", latitude, longitude, OpenWeatherAPIKey)
+	log.Printf("Weather API Request URL: %s", weatherURL) // Log the request URL
+
+	weatherResp, err := http.Get(weatherURL)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching weather information: %v", err)
+		return nil, fmt.Errorf("error fetching weather info: %w", err)
 	}
 	defer weatherResp.Body.Close()
 
+	if weatherResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(weatherResp.Body)
+		return nil, fmt.Errorf("openweathermap.org responded with status %d: %s", weatherResp.StatusCode, string(body))
+	}
+
 	weatherBody, err := io.ReadAll(weatherResp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading weather API response: %v", err)
+		return nil, fmt.Errorf("error reading weather API response: %w", err)
 	}
+
+	log.Printf("Weather API Response: %s", weatherBody) // Log the response body for debugging
 
 	var weatherData map[string]interface{}
 	if err := json.Unmarshal(weatherBody, &weatherData); err != nil {
-		return nil, fmt.Errorf("error decoding weather API response: %v", err)
+		return nil, fmt.Errorf("error unmarshaling weather API response: %w", err)
 	}
+
+	log.Printf("Unmarshaled Weather Data: %#v", weatherData)
 
 	temperature, ok := weatherData["main"].(map[string]interface{})["temp"].(float64)
 	if !ok {
@@ -83,22 +114,24 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	visitorName := r.URL.Query().Get("visitor_name")
 	ipInfo, err := getIPInfo(visitorName)
 	if err != nil {
-		log.Printf("Error retrieving IP info: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Printf("Error getting IP info: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(ipInfo); err != nil {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ") // Pretty print the JSON
+	if err := encoder.Encode(ipInfo); err != nil {
 		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func main() {
 	http.HandleFunc("/api/hello", handler)
-	log.Printf("Server listening on port %s\n", Port)
+	fmt.Printf("Server listening on port %s\n", Port)
 	if err := http.ListenAndServe(":"+Port, nil); err != nil {
-		log.Fatalf("Error starting server: %v", err)
+		log.Fatalf("Server error: %v", err)
 	}
 }
