@@ -5,7 +5,7 @@ This Go program provides a basic HTTP server that does the following:
 1. **Retrieves the client's IP address.**
 2. **Returns a JSON response** containing:
    * The client's IP address
-   * Get the current client's IP address
+   * Get the current client IP address
    * A personalized greeting with the client name and temperature
 
 ### How to Use
