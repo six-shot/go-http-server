@@ -16,13 +16,25 @@ const (
 )
 
 type IPInfo struct {
-	IP       string `json:"client_ip"`
+	IP       string `json:"ip"`
 	Location string `json:"location"`
 	Greeting string `json:"greeting"`
 }
 
-func getIPInfo(visitorName string) (*IPInfo, error) {
-	resp, err := http.Get("https://ipapi.co/json/")
+func getClientIP(r *http.Request) string {
+	// Check the X-Forwarded-For header first, as it might be set by a proxy
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return strings.Split(ip, ",")[0]
+	}
+
+	// Fallback to using the remote address
+	ip := strings.Split(r.RemoteAddr, ":")[0]
+	return ip
+}
+
+func getIPInfo(visitorName string, clientIP string) (*IPInfo, error) {
+	ipapiURL := fmt.Sprintf("https://ipapi.co/%s/json/", clientIP)
+	resp, err := http.Get(ipapiURL)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching IP info: %w", err)
 	}
@@ -112,7 +124,8 @@ func getIPInfo(visitorName string) (*IPInfo, error) {
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	visitorName := r.URL.Query().Get("visitor_name")
-	ipInfo, err := getIPInfo(visitorName)
+	clientIP := getClientIP(r)
+	ipInfo, err := getIPInfo(visitorName, clientIP)
 	if err != nil {
 		log.Printf("Error getting IP info: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
