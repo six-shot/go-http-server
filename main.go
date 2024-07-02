@@ -11,7 +11,7 @@ import (
 const (
 	OpenWeatherAPIKey = "00caff80d1374a0158d10c572dc19ef5"
 	Name              = "six-shot"
-	Port              = "https://go-http-server-production-ff45.up.railway.app"
+	Port              = "8000"
 )
 
 type IPInfo struct {
