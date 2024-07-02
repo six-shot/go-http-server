@@ -16,7 +16,7 @@ const (
 )
 
 type IPInfo struct {
-	IP       string `json:"ip"`
+	IP       string `json:"client_ip"`
 	Location string `json:"location"`
 	Greeting string `json:"greeting"`
 }
