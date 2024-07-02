@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"os"
 	"strings"
-	"github.com/joho/godotenv"
+)
+
+const (
+	OpenWeatherAPIKey = "00caff80d1374a0158d10c572dc19ef5"
+	Name              = "six-shot"
+	Port              = "8000"
 )
 
 type IPInfo struct {
@@ -39,8 +42,7 @@ func getIPInfo(visitorName string) (*IPInfo, error) {
 		return nil, fmt.Errorf("city not found in IP API response")
 	}
 
-	apiKey := os.Getenv("OPENWEATHER_API_KEY")
-	weatherResp, err := http.Get(fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric", city, apiKey))
+	weatherResp, err := http.Get(fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric", city, OpenWeatherAPIKey))
 	if err != nil {
 		return nil, err
 	}
@@ -60,21 +62,11 @@ func getIPInfo(visitorName string) (*IPInfo, error) {
 		return nil, fmt.Errorf("temperature not found in weather API response")
 	}
 
-	name := os.Getenv("NAME")
-	if name == "" {
-		name = "six-shot"
-	}
-
 	if visitorName != "" {
-		decodedName, err := url.QueryUnescape(visitorName)
-		if err == nil {
-			visitorName = decodedName
-		}
 		visitorName = strings.Trim(visitorName, "\"")
-		name = visitorName
 	}
 
-	greeting := fmt.Sprintf("Hello, %s! The temperature is %.1f degrees Celsius in %s", name, temperature, city)
+	greeting := fmt.Sprintf("Hello, %s! The temperature is %.1f degrees Celsius in %s", visitorName, temperature, city)
 
 	info := &IPInfo{
 		IP:       data["ip"].(string),
@@ -98,14 +90,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file")
-	}
-
 	http.HandleFunc("/api/hello", handler)
-	fmt.Println("Server listening on port 8000")
-	if err := http.ListenAndServe(":8000", nil); err != nil {
+	fmt.Printf("Server listening on port %s\n", Port)
+	if err := http.ListenAndServe(":"+Port, nil); err != nil {
 		panic(err)
 	}
 }
